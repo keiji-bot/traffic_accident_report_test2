@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>事故レポートアプリ - デモ</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+    background: #e8e8ed;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 32px 16px 48px;
+  }
+  h1 {
+    font-size: 13px;
+    font-weight: 400;
+    color: #888;
+    margin-bottom: 20px;
+    letter-spacing: 0.3px;
+  }
+
+  .phone {
+    width: 360px;
+    min-height: 720px;
+    background: #1a1a2e;
+    border-radius: 44px;
+    overflow: hidden;
+    border: 8px solid #2d2d4e;
+    position: relative;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.06);
+  }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    min-height: 704px;
+    background: #f5f5f7;
+  }
+  .screen.active { display: flex; }
+
+  /* ───── Lock screen ───── */
+  #screen-lock {
+    background: linear-gradient(160deg, #0f0c29 0%, #302b63 55%, #24243e 100%);
+    align-items: center;
+    justify-content: flex-start;
+    padding: 64px 24px 32px;
+    color: #fff;
+  }
+  .lock-time { font-size: 60px; font-weight: 200; letter-spacing: -3px; text-align: center; width: 100%; }
+  .lock-date { font-size: 15px; color: rgba(255,255,255,0.65); text-align: center; margin-top: 6px; margin-bottom: 48px; }
+  .lock-apps { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 14px; margin-top: auto; }
+  .lock-hint { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 4px; }
+  .app-icon-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .app-icon-wrap:active .app-icon { transform: scale(0.94); }
+  .app-icon {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 6px 24px rgba(231,76,60,0.55);
+    transition: transform 0.12s ease;
+  }
+  .app-label { font-size: 12px; color: rgba(255,255,255,0.85); font-weight: 500; }
+  .tap-hint { font-size: 11px; color: rgba(255,255,255,0.35); }
+
+  /* ───── Nav bar ───── */
+  .nav-bar {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(12px);
+    padding: 14px 16px 10px;
+    display: flex; align-items: center;
+    border-bottom: 0.5px solid #e0e0e0;
+    gap: 10px; min-height: 56px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .nav-title { font-size: 15px; font-weight: 600; color: #1a1a1a; flex: 1; text-align: center; }
+  .nav-back { font-size: 14px; color: #e74c3c; cursor: pointer; display: flex; align-items: center; gap: 3px; min-width: 64px; -webkit-tap-highlight-color: transparent; }
+  .nav-next { font-size: 14px; color: #e74c3c; cursor: pointer; font-weight: 600; min-width: 64px; text-align: right; -webkit-tap-highlight-color: transparent; }
+
+  /* ───── Status bar ───── */
+  .status-bar {
+    background: #fff;
+    padding: 10px 14px 8px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    font-size: 11px; color: #888;
+    border-bottom: 0.5px solid #f0f0f0;
+  }
+  .status-chip {
+    background: #f0f0f3;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px; color: #555;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* ───── Progress dots ───── */
+  .progress-dots { display: flex; justify-content: center; gap: 7px; padding: 10px 0 4px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #ddd; transition: all 0.25s ease; }
+  .dot.active { background: #e74c3c; width: 20px; border-radius: 3px; }
+
+  /* ───── Content area ───── */
+  .content { flex: 1; overflow-y: auto; padding: 14px 14px 24px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+
+  /* ───── Cards ───── */
+  .section-card { background: #fff; border-radius: 14px; overflow: hidden; border: 0.5px solid #e5e5e5; }
+  .section-header { padding: 11px 14px 8px; font-size: 11px; font-weight: 600; color: #999; letter-spacing: 0.6px; text-transform: uppercase; border-bottom: 0.5px solid #f2f2f2; }
+
+  /* ───── Photo grid ───── */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; }
+  .photo-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; background: #f5f5f7; }
+  .photo-cell img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-cell.add-btn { flex-direction: column; gap: 4px; font-size: 10px; color: #aaa; -webkit-tap-highlight-color: transparent; }
+  .photo-cell.add-btn:active { background: #e8e8ec; }
+  .photo-count { font-size: 12px; color: #999; padding: 8px 14px; }
+
+  /* ───── Weather hero ───── */
+  .weather-hero {
+    background: linear-gradient(135deg, #4a4e8c, #2d3561);
+    padding: 22px 18px;
+    color: #fff;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .weather-icon-big { font-size: 52px; line-height: 1; }
+  .weather-main .temp { font-size: 40px; font-weight: 200; line-height: 1; }
+  .weather-main .cond { font-size: 15px; opacity: 0.85; margin-top: 4px; }
+  .weather-auto { font-size: 10px; opacity: 0.5; margin-top: 6px; }
+
+  /* ───── Field rows ───── */
+  .field-row { display: flex; align-items: center; padding: 12px 14px; border-bottom: 0.5px solid #f5f5f5; gap: 10px; }
+  .field-row:last-child { border-bottom: none; }
+  .field-label { font-size: 13px; color: #999; min-width: 80px; }
+  .field-value { font-size: 14px; color: #1a1a1a; font-weight: 500; flex: 1; }
+
+  select, input[type=text], input[type=number] {
+    border: 0.5px solid #ddd;
+    border-radius: 9px;
+    padding: 7px 10px;
+    font-size: 14px;
+    color: #1a1a1a;
+    background: #fff;
+    width: 100%;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+  }
+  select:focus, input:focus { border-color: #e74c3c; box-shadow: 0 0 0 3px rgba(231,76,60,0.12); }
+
+  /* ───── Confirm rows ───── */
+  .confirm-section { padding: 12px 14px; }
+  .confirm-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 0.5px solid #f5f5f5; gap: 8px; }
+  .confirm-row:last-child { border-bottom: none; }
+  .confirm-label { font-size: 12px; color: #aaa; min-width: 72px; padding-top: 1px; }
+  .confirm-val { font-size: 14px; color: #1a1a1a; text-align: right; flex: 1; }
+
+  .photo-thumbs { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+  .thumb { width: 38px; height: 38px; border-radius: 8px; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+  /* ───── Buttons ───── */
+  .submit-btn {
+    margin: 4px 14px 0;
+    background: #e74c3c;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    width: calc(100% - 28px);
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .submit-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+  .secondary-note { font-size: 11px; color: #bbb; text-align: center; padding: 8px 0 4px; }
+
+  /* ───── Success screen ───── */
+  .success-screen {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 40px 28px;
+  }
+  .success-icon { font-size: 72px; }
+  .success-title { font-size: 22px; font-weight: 600; color: #1a1a1a; }
+  .success-sub { font-size: 14px; color: #888; text-align: center; line-height: 1.7; }
+  .receipt-box {
+    background: #f8f8fa; border-radius: 12px; padding: 14px 20px;
+    font-size: 13px; color: #555; text-align: center;
+    border: 0.5px solid #e5e5e5; width: 100%; margin-top: 4px;
+  }
+  .receipt-box strong { display: block; font-size: 16px; color: #1a1a1a; margin-top: 4px; letter-spacing: 1px; }
+  .reset-btn {
+    margin-top: 16px;
+    border: 1.5px solid #e74c3c;
+    background: transparent;
+    color: #e74c3c;
+    border-radius: 12px;
+    padding: 12px 32px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .reset-btn:active { background: rgba(231,76,60,0.06); }
+
+  /* ───── Responsive ───── */
+  @media (max-width: 400px) {
+    body { padding: 0; background: #f5f5f7; }
+    .phone { width: 100%; min-height: 100vh; border-radius: 0; border: none; box-shadow: none; }
+    h1 { display: none; }
+  }
+</style>
+</head>
+<body>
+<h1>事故レポートアプリ — UIデモ</h1>
+
+<div class="phone">
+
+  <!-- ── Screen 0: Lock ── -->
+  <div class="screen active" id="screen-lock">
+    <div class="lock-time">09:41</div>
+    <div class="lock-date">2026年1月1日（木）</div>
+    <div class="lock-apps">
+      <div class="lock-hint">ロック解除不要でアプリが起動します</div>
+      <div class="app-icon-wrap" onclick="goTo('screen-photo')" role="button" aria-label="事故レポートアプリを開く">
+        <div class="app-icon">🚨</div>
+        <div class="app-label">事故レポート</div>
+        <div class="tap-hint">タップで直接起動 →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Screen 1: Photo ── -->
+  <div class="screen" id="screen-photo">
+    <div class="nav-bar">
+      <span class="nav-back" onclick="goTo('screen-lock')" role="button">← 戻る</span>
+      <span class="nav-title">事故レポート</span>
+      <span class="nav-next" onclick="goTo('screen-weather')" role="button">次へ</span>
+    </div>
+    <div class="status-bar">
+      <span class="status-chip">📍 東京駅</span>
+      <span class="status-chip">🗓 2026/01/01</span>
+      <span class="status-chip">🕐 09:41</span>
+    </div>
+    <div class="progress-dots">
+      <div class="dot active"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="content">
+      <div class="section-card">
+        <div class="section-header">現場写真（最大12枚）</div>
+        <div class="photo-grid" id="photo-grid">
+          <div class="photo-cell">
+            <div style="width:100%;height:100%;background:#c5c9d4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+              <span style="font-size:36px;">📸</span>
+              <span style="font-size:9px;color:#777;">事故現場</span>
+            </div>
+          </div>
+          <div class="photo-cell">
+            <div style="width:100%;height:100%;background:#bdc2cf;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+              <span style="font-size:36px;">🚨</span>
+              <span style="font-size:9px;color:#777;">現場全景</span>
+            </div>
+          </div>
+          <div class="photo-cell add-btn" id="add-cell" onclick="addPhoto()" role="button" aria-label="写真を追加">
+            <span style="font-size:28px;color:#c0c0c8;">＋</span>
+            <span style="font-size:10px;color:#bbb;">追加</span>
+          </div>
+        </div>
+        <div class="photo-count" id="photo-count">2 / 12 枚</div>
+      </div>
+      <div class="section-card">
+        <div class="section-header">自動取得情報</div>
+        <div class="field-row">
+          <span class="field-label">場所</span>
+          <span class="field-value">東京駅</span>
+        </div>
+        <div class="field-row">
+          <span class="field-label">日時</span>
+          <span class="field-value">2026年1月1日 09:41</span>
+        </div>
+      </div>
+      <button class="submit-btn" onclick="goTo('screen-weather')">次へ：天候情報を入力 →</button>
+    </div>
+  </div>
+
+  <!-- ── Screen 2: Weather ── -->
+  <div class="screen" id="screen-weather">
+    <div class="nav-bar">
+      <span class="nav-back" onclick="goTo('screen-photo')" role="button">← 写真</span>
+      <span class="nav-title">天候情報</span>
+      <span class="nav-next" onclick="goTo('screen-confirm')" role="button">次へ</span>
+    </div>
+    <div class="progress-dots">
+      <div class="dot"></div><div class="dot active"></div><div class="dot"></div>
+    </div>
+    <div class="content">
+      <div class="weather-hero">
+        <div class="weather-icon-big" id="w-icon">🌧</div>
+        <div class="weather-main">
+          <div class="temp" id="w-temp-disp">10°C</div>
+          <div class="cond" id="w-cond-disp">雨</div>
+          <div class="weather-auto">外部API自動取得 · 東京駅</div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-header">天候詳細（確認・変更可）</div>
+        <div class="field-row">
+          <span class="field-label">天気</span>
+          <div style="flex:1;">
+            <select id="w-cond" onchange="updateWeather()">
+              <option value="晴れ" data-icon="☀️">☀️ 晴れ</option>
+              <option value="曇り" data-icon="☁️">☁️ 曇り</option>
+              <option value="雨" selected data-icon="🌧">🌧 雨</option>
+              <option value="雪" data-icon="❄️">❄️ 雪</option>
+              <option value="霧" data-icon="🌫">🌫 霧</option>
+              <option value="強風" data-icon="💨">💨 強風</option>
+              <option value="雷雨" data-icon="⛈">⛈ 雷雨</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">気温</span>
+          <div style="flex:1;display:flex;gap:8px;align-items:center;">
+            <input type="number" id="w-temp" value="10" min="-30" max="50" style="width:90px;" onchange="updateWeather()">
+            <span style="font-size:14px;color:#888;">°C</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">視界</span>
+          <div style="flex:1;">
+            <select id="w-visibility">
+              <option>不良（雨天）</option>
+              <option>普通</option>
+              <option>良好</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">路面状態</span>
+          <div style="flex:1;">
+            <select id="w-road">
+              <option>濡れている</option>
+              <option>乾燥</option>
+              <option>凍結</option>
+              <option>積雪</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button class="submit-btn" onclick="goTo('screen-confirm')">次へ：内容を確認する →</button>
+    </div>
+  </div>
+
+  <!-- ── Screen 3: Confirm ── -->
+  <div class="screen" id="screen-confirm">
+    <div class="nav-bar">
+      <span class="nav-back" onclick="goTo('screen-weather')" role="button">← 天候</span>
+      <span class="nav-title">内容確認</span>
+      <span style="min-width:64px;"></span>
+    </div>
+    <div class="progress-dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot active"></div>
+    </div>
+    <div class="content">
+      <div class="section-card">
+        <div class="section-header">基本情報</div>
+        <div class="confirm-section">
+          <div class="confirm-row">
+            <span class="confirm-label">場所</span>
+            <span class="confirm-val">東京駅</span>
+          </div>
+          <div class="confirm-row" style="border:none;">
+            <span class="confirm-label">日時</span>
+            <span class="confirm-val">2026年1月1日 09:41</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-header">現場写真</div>
+        <div class="confirm-section">
+          <div class="confirm-row">
+            <span class="confirm-label">添付</span>
+            <div class="photo-thumbs" id="confirm-thumbs">
+              <div class="thumb">📸</div>
+              <div class="thumb">🚨</div>
+            </div>
+          </div>
+          <div class="confirm-row" style="border:none;">
+            <span class="confirm-label">合計</span>
+            <span class="confirm-val" id="confirm-photo-count">2 枚</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-header">天候情報</div>
+        <div class="confirm-section">
+          <div class="confirm-row">
+            <span class="confirm-label">天気</span>
+            <span class="confirm-val" id="c-cond">🌧 雨</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">気温</span>
+            <span class="confirm-val" id="c-temp">10°C</span>
+          </div>
+          <div class="confirm-row">
+            <span class="confirm-label">視界</span>
+            <span class="confirm-val" id="c-vis">不良（雨天）</span>
+          </div>
+          <div class="confirm-row" style="border:none;">
+            <span class="confirm-label">路面</span>
+            <span class="confirm-val" id="c-road">濡れている</span>
+          </div>
+        </div>
+      </div>
+      <p class="secondary-note">送信後の変更はできません。内容をご確認ください。</p>
+      <button class="submit-btn" onclick="goTo('screen-success')" style="margin-bottom:20px;">📤 レポートを送信する</button>
+    </div>
+  </div>
+
+  <!-- ── Screen 4: Success ── -->
+  <div class="screen" id="screen-success">
+    <div class="nav-bar">
+      <span style="min-width:64px;"></span>
+      <span class="nav-title">送信完了</span>
+      <span style="min-width:64px;"></span>
+    </div>
+    <div class="success-screen">
+      <div class="success-icon">✅</div>
+      <div class="success-title">送信が完了しました</div>
+      <div class="success-sub">レポートが正常に送信されました。<br>担当者が内容を確認します。</div>
+      <div class="receipt-box">
+        受付番号
+        <strong>RPT-20260101-0042</strong>
+      </div>
+      <button class="reset-btn" onclick="goTo('screen-lock')">← ロック画面に戻る</button>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+<script>
+  var photoCount = 2;
+  var weatherIcons = { '晴れ':'☀️', '曇り':'☁️', '雨':'🌧', '雪':'❄️', '霧':'🌫', '強風':'💨', '雷雨':'⛈' };
+
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+    if (id === 'screen-confirm') updateConfirm();
+    window.scrollTo(0, 0);
+  }
+
+  function addPhoto() {
+    if (photoCount >= 12) return;
+    photoCount++;
+    document.getElementById('photo-count').textContent = photoCount + ' / 12 枚';
+    var grid = document.getElementById('photo-grid');
+    var addCell = document.getElementById('add-cell');
+    var emojis = ['🚗','📋','🔍','📷','🗺','🔦'];
+    var newCell = document.createElement('div');
+    newCell.className = 'photo-cell';
+    newCell.innerHTML = '<div style="width:100%;height:100%;background:#d0d4de;display:flex;align-items:center;justify-content:center;font-size:32px;">' + emojis[(photoCount-3) % emojis.length] + '</div>';
+    grid.insertBefore(newCell, addCell);
+    if (photoCount >= 12) addCell.style.display = 'none';
+  }
+
+  function updateWeather() {
+    var cond = document.getElementById('w-cond').value;
+    var temp = parseInt(document.getElementById('w-temp').value) || 10;
+    document.getElementById('w-icon').textContent = weatherIcons[cond] || '🌡';
+    document.getElementById('w-temp-disp').textContent = temp + '°C';
+    document.getElementById('w-cond-disp').textContent = cond;
+  }
+
+  function updateConfirm() {
+    var cond = document.getElementById('w-cond').value;
+    var temp = parseInt(document.getElementById('w-temp').value) || 10;
+    var vis = document.getElementById('w-visibility').value;
+    var road = document.getElementById('w-road').value;
+    document.getElementById('c-cond').textContent = (weatherIcons[cond] || '') + ' ' + cond;
+    document.getElementById('c-temp').textContent = temp + '°C';
+    document.getElementById('c-vis').textContent = vis;
+    document.getElementById('c-road').textContent = road;
+    document.getElementById('confirm-photo-count').textContent = photoCount + ' 枚';
+    var thumbs = document.getElementById('confirm-thumbs');
+    thumbs.innerHTML = '<div class="thumb">📸</div><div class="thumb">🚨</div>';
+    if (photoCount > 2) {
+      var extra = document.createElement('div');
+      extra.className = 'thumb';
+      extra.style.cssText = 'background:#ffe8e8;color:#e74c3c;font-size:12px;font-weight:600;';
+      extra.textContent = '+' + (photoCount - 2);
+      thumbs.appendChild(extra);
+    }
+  }
+</script>
+</body>
+</html>
